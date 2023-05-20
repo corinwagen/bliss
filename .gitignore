@@ -7,3 +7,10 @@ __pycache__/
 
 # private info
 spring2023/
+
+.DS_Store
+
+*.swp
+
+# Word crap
+~$*.docx
