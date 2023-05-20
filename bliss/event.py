@@ -108,13 +108,13 @@ class DebateEvent:
         scores, num_scores, speaker_pts = self.rankings(rounds=rounds)
         team_order = np.argsort(scores)[::-1]
         for idx in team_order:
-            print(f"{self.teams[idx].name: <16}\t{scores[idx]}\t{int(num_scores[idx])}")
+            print(f"{self.teams[idx].name: <30} ({idx})\t{scores[idx]:}\t{int(num_scores[idx])}\t{self.avg_speaker_pts_by_team(idx):.2f}")
 
         print("\n")
 
         student_order = np.argsort(speaker_pts)[::-1]
         for idx in student_order:
-            print(f"{self.students[idx]: <16}\t{speaker_pts[idx]}")
+            print(f"{self.students[idx]: <30}\t{speaker_pts[idx]}")
 
     def top_teams(self, num, rounds=None):
         scores, num_scores, _ = self.rankings(rounds=rounds)
@@ -134,3 +134,13 @@ class DebateEvent:
 
     def num_speakers(self):
         return sum([len(t.students) for t in self.teams])
+
+    def avg_speaker_pts_by_team(self, idx, rounds=None):
+        team = self.teams[idx]
+        student_ids = []
+        for student in team.students:
+            student_ids.append(self.get_student_id(student))
+
+        _, _, speaker_pts = self.rankings(rounds=rounds)
+        return np.mean(speaker_pts[student_ids])
+
