@@ -68,7 +68,22 @@ class Round:
                 temp.save(save_str)
 
     def gen_postings(self):
-        print("NOT IMPLEMENTED YET!")
+        save_str = f"{self.write_prefix}{self.event.name}_Round{self.name}_Postings.docx"
+        if os.path.exists(save_str):
+            print(f"Already file at {save_str} !")
+            return
+
+        # from Walker
+        temp = docx.Document(self.event.posting_template)
+        temp.paragraphs[2].text += self.name
+        table = temp.tables[0]
+
+        for idx, room in enumerate(self.rooms):
+            table.cell(0, idx).text = f"{room} ({idx})"
+            for student_idx, student in enumerate(self.assignments[idx]):
+                table.cell(student_idx + 1, idx).text = f"{student} ({self.event.get_student_id(student)})"
+
+        temp.save(save_str)
 
     def num_ballots(self):
         return self.judges_per_room * self.num_rooms()
