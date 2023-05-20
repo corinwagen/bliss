@@ -1,0 +1,4 @@
+room_id: 1
+judge_id: 1
+student_ids: [1, 2]
+rankings: [2, 1]
