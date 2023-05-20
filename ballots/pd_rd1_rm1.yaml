@@ -1,0 +1,6 @@
+judge_id: 1
+room_id: 0
+team_ids: [1, 0]
+rankings: [1, 2]
+student_ids: [2, 3, 0, 1]
+speaker_points: [8, 7, 5, 6]
