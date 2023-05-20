@@ -12,7 +12,8 @@ Jupyter Notebook is the recommended way to run things, with frequent use of *pic
 ## Todo
 - Autogenerate blank ballot ``.yaml``  files with speaker IDs.
 - Add code to autogenerate rankings.
-- Track AFF/NEG for debate.
-- Prevent repeat hits in debate - small numbers mean you have to do this manually.
+- Track AFF/NEG for debate, making sure one team doesn't do all AFF or all NEG.
+- Prevent repeat hits in debate - automatically assign pairings to prevent this. Manual makes this hard.
+- Some way to break ties based on room difficulty for speech events.
 
 *Corin Wagen, 2023*

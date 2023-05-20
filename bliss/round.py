@@ -29,13 +29,16 @@ class SpeechRound:
 
         return repr_str
 
-    def do_break(self):
+    def do_break(self, randomize=True):
         if self.broken():
             print("Already broken!")
             return
 
         shuffled_students = copy.deepcopy(self.students)
-        random.shuffle(shuffled_students)
+        if randomize:
+            random.shuffle(shuffled_students)
+        else:
+            print("not randomizing!")
 
         # assign students
         for idx, student in enumerate(shuffled_students):
