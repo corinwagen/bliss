@@ -1,7 +1,9 @@
-from dataclasses import dataclass
+from __future__ import annotations
 
+from dataclasses import dataclass
 import bliss
 
+@dataclass
 class Tournament:
     name: str
     schools: list[bliss.School]

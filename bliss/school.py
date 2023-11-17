@@ -2,5 +2,6 @@ from dataclasses import dataclass
 
 import bliss
 
-def School:
+@dataclass
+class School:
     name: str

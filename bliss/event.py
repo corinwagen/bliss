@@ -1,14 +1,17 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 import bliss
 import numpy as np
+import pandas as pd
 
 @dataclass
 class SpeechEvent:
     name: str
-    student_list: list[bliss.Student]
     ballot_template: str
     posting_template: str
+    students: list[bliss.Student] = field(default_factory=list)
     rounds: list[bliss.SpeechRound] = field(default_factory=list)
 
     def add_round(self, round_name, rooms, students=None, **kwargs):
@@ -16,7 +19,6 @@ class SpeechEvent:
             students = self.students
 
         self.rounds.append(bliss.SpeechRound(self, round_name, rooms, students, **kwargs))
-
         return self.rounds[-1]
 
     def prelim_rankings(self, rounds=None):
@@ -55,71 +57,76 @@ class SpeechEvent:
 
         return top_students
 
-    def get_student_id(self, student):
-        return self.students.index(student)
-
+@dataclass
 class DebateEvent:
-    def __init__(self, name, teams, ballot_template, posting_template):
-        self.name = name
-        self.ballot_template = ballot_template
-        self.posting_template = posting_template
-        self.rounds = []
-        self.teams = teams
-
-        self.students = []
-        for team in self.teams:
-            self.students += team.students
+    name: str
+    ballot_template: str
+    posting_template: str
+    teams: list[bliss.Team] = field(default_factory=list)
+    rounds: list[bliss.SpeechRound] = field(default_factory=list)
 
     def add_round(self, round_name, rooms, teams=None, **kwargs):
         if teams == None:
             teams = self.teams
 
         self.rounds.append(bliss.DebateRound(self, round_name, rooms, teams, **kwargs))
-
         return self.rounds[-1]
 
-    def rankings(self, rounds=None):
-        if isinstance(rounds, int):
-            rounds = [self.rounds[rounds]]
-        elif isinstance(rounds, str):
-            rounds = [self.rounds[self.rounds.index(rounds)]]
-        elif rounds is None:
-            rounds = self.rounds
+    @property
+    def students(self):
+        studs = list()
+        for team in self.teams:
+            studs.append(team.students[0])
+            studs.append(team.students[1])
+        return studs
 
+    def rankings(self, filename, speaker_filename, rounds):
         scores_by_team = np.zeros(shape=len(self.teams))
         num_scores = np.zeros(shape=len(self.teams))
-        speaker_points = np.zeros(shape=self.num_speakers())
+        speaker_points = np.zeros(shape=len(self.students))
 
-        for r in rounds:
-            for ballot_room in r.ballots:
-                for ballot in ballot_room:
-                    for team_id, ranking in zip(ballot.team_ids, ballot.rankings):
-                        # we only count wins here
-                        if ranking == 1:
-                            scores_by_team[team_id] += 1
+        # team results
+        df = pd.read_excel(filename, header=[0,1], index_col=0)
+        for idx, row in df.iterrows():
+            for rd in rounds:
+                if pd.isna(row[rd][1]):
+                    continue
 
-                        num_scores[team_id] += 1
+                if sum(row[rd]) > len(row[rd])/2:
+                    scores_by_team[idx] += 1
 
-                    for student_id, speaker_pt in zip(ballot.student_ids, ballot.speaker_points):
-                        speaker_points[student_id] += speaker_pt
+                num_scores[idx] += 1
 
-        return scores_by_team, num_scores, speaker_points
+        # speaker pts
+        df = pd.read_excel(speaker_filename, header=[0,1], index_col=0)
+        for i, (idx, row) in enumerate(df.iterrows()):
+            for rd in rounds:
+                if pd.isna(row[rd][1]):
+                    continue
 
-    def print_rankings(self, rounds=None):
-        scores, num_scores, speaker_pts = self.rankings(rounds=rounds)
-        team_order = np.argsort(scores)[::-1]
+                speaker_points[i] += sum(row[rd])
+
+        # who's the best? # rounds, then # wins, then speaker pts
+        speaker_points_by_team = np.array([self.avg_speaker_pts_by_team(idx, speaker_points) for idx in range(len(self.teams))])
+        goodness = 100 * num_scores + scores_by_team + 0.001 * speaker_points_by_team
+        team_order = np.argsort(goodness)[::-1]
+
+        return team_order, scores_by_team, num_scores, speaker_points
+
+    def print_rankings(self, *args):
+        team_order, scores, num_scores, speaker_pts = self.rankings(*args)
+
         for idx in team_order:
-            print(f"{self.teams[idx].name: <30} ({idx})\t{scores[idx]:}\t{int(num_scores[idx])}\t{self.avg_speaker_pts_by_team(idx):.2f}")
+            print(f"{self.teams[idx].name: <30} ({idx})\t{scores[idx]:}\t{int(num_scores[idx])}\t{self.avg_speaker_pts_by_team(idx, speaker_pts):.2f}")
 
         print("\n")
 
         student_order = np.argsort(speaker_pts)[::-1]
         for idx in student_order:
-            print(f"{self.students[idx]: <30}\t{speaker_pts[idx]}")
+            print(f"{self.students[idx].name: <30}\t{speaker_pts[idx]}")
 
-    def top_teams(self, num, rounds=None):
-        scores, num_scores, _ = self.rankings(rounds=rounds)
-        team_order = np.argsort(scores)[::-1]
+    def top_teams(self, num):
+        team_order, num_scores, _ = self.rankings()
 
         top_teams = []
         for idx in team_order[:num]:
@@ -127,21 +134,15 @@ class DebateEvent:
 
         return top_teams
 
-    def get_student_id(self, student):
-        return self.students.index(student)
-
-    def get_team_id(self, team):
-        return self.teams.index(team)
-
-    def num_speakers(self):
-        return sum([len(t.students) for t in self.teams])
-
-    def avg_speaker_pts_by_team(self, idx, rounds=None):
+    def avg_speaker_pts_by_team(self, idx, speaker_pts):
         team = self.teams[idx]
         student_ids = []
         for student in team.students:
-            student_ids.append(self.get_student_id(student))
+            student_ids.append(student.id)
 
-        _, _, speaker_pts = self.rankings(rounds=rounds)
-        return np.mean(speaker_pts[student_ids])
+        return np.mean(
+            speaker_pts[
+                [[s.id for s in self.students].index(i) for i in student_ids]
+            ]
+        )
 

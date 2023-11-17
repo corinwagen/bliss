@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 import bliss
@@ -6,9 +8,10 @@ import bliss
 class Student:
     firstname: str
     lastname: str
+    id: int
 
     school: bliss.School
 
     @property
     def name(self) -> str:
-        return f"{firstname} {lastname}"
+            return f"{self.firstname} {self.lastname}"
