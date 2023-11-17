@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 import bliss
 import numpy as np
 import copy
@@ -6,8 +7,18 @@ import docx
 import os
 import yaml
 
+@dataclass
 class SpeechRound:
-    def __init__(self, event, name, rooms, students, judges_per_room=1, write_prefix="write/"):
+    name: str
+    event: bliss.SpeechEvent
+    rooms: list[str]
+    students: list[bliss.Student]
+    judges_per_room: int = 1
+    write_prefix: str = "write/"
+
+    assignments: list[list[bliss.Student]] = field(init=False)
+
+    def __post_init__(self, event, name, rooms, students, judges_per_room=1, write_prefix="write/"):
         self.name = name
         self.rooms = rooms
         self.students = students

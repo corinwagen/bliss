@@ -1,14 +1,15 @@
+from dataclasses import dataclass
+
 import bliss
 import numpy as np
 
+@dataclass
 class SpeechEvent:
-    def __init__(self, name, students_list, ballot_template, posting_template):
-        self.name = name
-        self.ballot_template = ballot_template
-        self.posting_template = posting_template
-        self.rounds = []
-        self.students = students_list
-        pass
+    name: str
+    student_list: list[bliss.Student]
+    ballot_template: str
+    posting_template: str
+    rounds: list[bliss.SpeechRound] = field(default_factory=list)
 
     def add_round(self, round_name, rooms, students=None, **kwargs):
         if students == None:
@@ -18,7 +19,7 @@ class SpeechEvent:
 
         return self.rounds[-1]
 
-    def rankings(self, rounds=None):
+    def prelim_rankings(self, rounds=None):
         if isinstance(rounds, int):
             rounds = [self.rounds[rounds]]
         elif isinstance(rounds, str):
