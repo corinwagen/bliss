@@ -110,6 +110,36 @@ class SpeechRound:
         ballot = bliss.SpeechBallot(**ballot_info)
         self.ballots[ballot_info["room_id"]].append(ballot)
 
+    def get_ranking_for_room(self, room_id):
+        # returns dict mapping from student ids to placing
+
+        ballots = self.ballots[room_id]
+
+        # presumes all ballots have same order
+        scores = np.zeros_like(ballots[0].student_ids, dtype=np.float64)
+        for ballot in ballots:
+            scores += 1/ballot.rankings
+
+        # awkward
+        scores_dict = {ballots[0].student_ids[i]: scores[i] for i in range(len(scores))}
+        sorted_scores = {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1], reverse=True)}
+
+        # this is straight from stackoverflow
+        positions = {}
+        cur_score = None # Score we're examining
+        cur_count = 0 # Number of others that we've seen with this score
+
+        for ix, (name, score) in enumerate(sorted_scores.items()):
+            if score == cur_score: # Same score for this player as previous
+                cur_count += 1
+            else: # Different score from before
+                cur_score = score
+                cur_count = 0
+            positions[name] = ix - cur_count + 1 # Add 1 because ix is 0-based
+
+        return positions
+
+
 class DebateRound:
     def __init__(self, event, name, rooms, teams, judges_per_room=1, write_prefix="write/"):
         self.name = name
