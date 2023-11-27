@@ -20,16 +20,6 @@ Jupyter Notebook is the recommended way to run things, with frequent use of *pic
 - how to handle same-day add–drop
 - finals rounds scoring independently. overall ranks are composite in out-rounds, previous rounds shouldn't affect anything.
 
-## Corin Notes
-- we need a spreadsheet!
-- like, just a good spreadsheet that outputs all the info we want and need.
-- code takes in spreadsheet - spreadsheet is the state!
-- and we can manually look at all the data and assess its correctness.
-- todo:
-  - repeat hits, bad.
-  - aff/neg bad
-  - room difficulty? break ties.
-  - debate breaks
-  - FINAL ROUND SCORING
-
+There's something more abstractly wrong about how this is setup, relating to data structure and flow, that's difficult to fix without a larger investment of time than I'm willing to spend. Cf. [this guide](https://www.csun.edu/~dgw61315/handtab.html).
+  
 *Corin Wagen, 2023*

@@ -6,6 +6,7 @@ import bliss
 import numpy as np
 import pandas as pd
 
+
 @dataclass
 class SpeechEvent:
     name: str
@@ -15,47 +16,62 @@ class SpeechEvent:
     rounds: list[bliss.SpeechRound] = field(default_factory=list)
 
     def add_round(self, round_name, rooms, students=None, **kwargs):
-        if students == None:
+        if students is None:
             students = self.students
 
         self.rounds.append(bliss.SpeechRound(self, round_name, rooms, students, **kwargs))
         return self.rounds[-1]
 
-    def prelim_rankings(self, rounds=None):
-        if isinstance(rounds, int):
-            rounds = [self.rounds[rounds]]
-        elif isinstance(rounds, str):
-            rounds = [self.rounds[self.rounds.index(rounds)]]
-        elif rounds is None:
-            rounds = self.rounds
+    def rankings(self, filename, rounds):
+        scores = np.zeros(shape=len(self.students))
+        num_rounds = np.zeros(shape=len(self.students))
 
-        scores_by_student = np.zeros(shape=len(self.students))
-        num_scores_for_student = np.zeros(shape=len(self.students))
+        # team results
+        df = pd.read_excel(filename, header=[0, 1], index_col=0)
+        for i, (idx, row) in enumerate(df.iterrows()):
+            for rd in rounds:
+                if pd.isna(row[rd][1]):
+                    continue
 
-        for r in rounds:
-            for ballot_room in r.ballots:
-                for ballot in ballot_room:
-                    for student_id, ranking in zip(ballot.student_ids, ballot.rankings):
-                        scores_by_student[student_id] += 1/ranking
-                        num_scores_for_student[student_id] += 1
+                for rank in row[rd]:
+                    scores[i] += 1 / rank
 
-        return scores_by_student, num_scores_for_student
+                num_rounds[i] += 1
 
-    def print_rankings(self, rounds=None):
-        scores, num_scores = self.rankings(rounds=rounds)
-        student_order = np.argsort(scores)[::-1]
+        # i hate this
+        experienced_room_difficulty = np.zeros_like(scores)
+        for i, student in enumerate(self.students):
+            for rd in self.rounds:
+                diff = 0
+                for assignment in rd.assignments:
+                    if student in assignment:
+                        for s in assignment:
+                            diff += scores[self.students.index(s)]
+                        diff = diff / len(assignment)
+
+                # lower numbers are harder
+                experienced_room_difficulty[i] += diff
+
+        # who's the best? # rounds, then # wins, then room diff (subtracted bc negative)
+        goodness = 100 * num_rounds + scores - 0.001 * experienced_room_difficulty
+        order = np.argsort(goodness)[::-1]
+
+        return order, scores, num_rounds
+
+    def print_rankings(self, *args):
+        student_order, scores, num_scores = self.rankings(*args)
         for idx in student_order:
-            print(f"{self.students[idx]: <16}\t{scores[idx]}\t{int(num_scores[idx])}")
+            print(f"{self.students[idx].name: <16}\t{scores[idx]}\t{int(num_scores[idx])}")
 
-    def top_students(self, num, rounds=None):
-        scores, num_scores = self.rankings(rounds=rounds)
-        student_order = np.argsort(scores)[::-1]
+    def top_students(self, num, *args):
+        student_order, scores, num_scores = self.rankings(*args)
 
         top_students = []
         for idx in student_order[:num]:
             top_students.append(self.students[idx])
 
         return top_students
+
 
 @dataclass
 class DebateEvent:
@@ -66,7 +82,7 @@ class DebateEvent:
     rounds: list[bliss.SpeechRound] = field(default_factory=list)
 
     def add_round(self, round_name, rooms, teams=None, **kwargs):
-        if teams == None:
+        if teams is None:
             teams = self.teams
 
         self.rounds.append(bliss.DebateRound(self, round_name, rooms, teams, **kwargs))
@@ -86,19 +102,19 @@ class DebateEvent:
         speaker_points = np.zeros(shape=len(self.students))
 
         # team results
-        df = pd.read_excel(filename, header=[0,1], index_col=0)
+        df = pd.read_excel(filename, header=[0, 1], index_col=0)
         for idx, row in df.iterrows():
             for rd in rounds:
                 if pd.isna(row[rd][1]):
                     continue
 
-                if sum(row[rd]) > len(row[rd])/2:
+                if sum(row[rd]) > len(row[rd]) / 2:
                     scores_by_team[idx] += 1
 
                 num_scores[idx] += 1
 
         # speaker pts
-        df = pd.read_excel(speaker_filename, header=[0,1], index_col=0)
+        df = pd.read_excel(speaker_filename, header=[0, 1], index_col=0)
         for i, (idx, row) in enumerate(df.iterrows()):
             for rd in rounds:
                 if pd.isna(row[rd][1]):
@@ -140,9 +156,4 @@ class DebateEvent:
         for student in team.students:
             student_ids.append(student.id)
 
-        return np.mean(
-            speaker_pts[
-                [[s.id for s in self.students].index(i) for i in student_ids]
-            ]
-        )
-
+        return np.mean(speaker_pts[[[s.id for s in self.students].index(i) for i in student_ids]])

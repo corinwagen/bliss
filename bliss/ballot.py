@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class SpeechBallot:
     def __init__(self, room_id, judge_id, student_ids, rankings):
         self.room_id = room_id
@@ -12,6 +13,7 @@ class SpeechBallot:
         assert set(rankings) == set(range(1, len(rankings) + 1))
 
         self.rankings = np.array(rankings)
+
 
 class DebateBallot:
     def __init__(self, room_id, judge_id, team_ids, student_ids, rankings, speaker_points):

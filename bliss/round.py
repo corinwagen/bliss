@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import bliss
-import numpy as np
 import copy
 import random
 import docx
 import os
-import yaml
 
 random.seed(12345)
+
 
 @dataclass
 class SpeechRound:
@@ -27,23 +26,29 @@ class SpeechRound:
 
     @property
     def is_outround(self) -> bool:
-        return (self.name in ("QF", "SF", "F"))
+        return self.name in ("QF", "SF", "F")
 
-    def do_break(self, randomize=True):
+    def do_break(self, randomize=True, assignments=None):
         if self.broken():
             print("Already broken!")
             return
 
-        shuffled_students = copy.deepcopy(self.students)
-        if randomize:
-            random.shuffle(shuffled_students)
-        else:
-            print("not randomizing!")
+        if assignments:
+            for i, room in enumerate(assignments):
+                for student_id in room:
+                    self.assignments[i].append(self.students[[s.id for s in self.students].index(student_id)])
 
-        # assign students
-        for idx, student in enumerate(shuffled_students):
-            assignment_idx = idx % len(self.assignments)
-            self.assignments[assignment_idx].append(student)
+        else:
+            shuffled_students = copy.deepcopy(self.students)
+            if randomize:
+                random.shuffle(shuffled_students)
+            else:
+                print("not randomizing!")
+
+            # assign students
+            for idx, student in enumerate(shuffled_students):
+                assignment_idx = idx % len(self.assignments)
+                self.assignments[assignment_idx].append(student)
 
         print("Round broken!")
 
@@ -87,6 +92,7 @@ class SpeechRound:
 
     def broken(self):
         return any([len(a) for a in self.assignments])
+
 
 #    def get_ranking_for_room(self, room_id):
 #        # returns dict mapping from student ids to placing
@@ -135,7 +141,7 @@ class DebateRound:
 
     @property
     def is_outround(self) -> bool:
-        return (self.name in ("QF", "SF", "F"))
+        return self.name in ("QF", "SF", "F")
 
     @property
     def students(self):
@@ -148,35 +154,53 @@ class DebateRound:
     def broken(self):
         return any([len(a) for a in self.assignments])
 
-    def do_break(self, pairings=None):
+    def do_break(self, pairings=None, rankings=None):
         if self.broken():
             print("Already broken!")
             return
 
         if pairings is None:
-            shuffled_students = copy.deepcopy(self.teams)
-            random.shuffle(shuffled_students)
+            if rankings:
+                # match 1 against 2, 3 against 4, and so forth
+                shuffled_teams = [None] * len(self.teams)
+                for idx, rank in enumerate(rankings):
+                    shuffled_teams[rank] = self.teams[idx]
+            else:
+                shuffled_teams = copy.deepcopy(self.teams)
+                random.shuffle(shuffled_teams)
 
             # assign students
-            for idx, student in enumerate(shuffled_students):
+            for idx, team in enumerate(shuffled_teams):
                 assignment_idx = idx % len(self.assignments)
-                self.assignments[assignment_idx].append(student)
+                self.assignments[assignment_idx].append(team)
 
         else:
             assert len(pairings) == len(self.rooms)
             for idx, room in enumerate(self.rooms):
-                team1 = self.teams[parirings[idx][0]]
-                team2 = self.teams[parirings[idx][1]]
+                team1 = self.teams[pairings[idx][0]]
+                team2 = self.teams[pairings[idx][1]]
+                self.assignments[idx].append(team1)
+                self.assignments[idx].append(team2)
 
-                # make sure nobody gets all aff or all neg
-                if team1.num_aff <= team2.num_aff:
-                    self.assignments[idx].append(team1)
-                    self.assignments[idx].append(team2)
-                    team1.num_aff += 1
-                else:
-                    self.assignments[idx].append(team2)
-                    self.assignments[idx].append(team1)
-                    team2.num_aff += 1
+        for idx, assignment in enumerate(self.assignments):
+            # all this clever stuff is breaking somehow right now, and i don't have time to fix it.
+            team1 = assignment[0]
+            team2 = assignment[1]
+
+            if team2 in team1.prev_seen:
+                print(f"{team1.name} already met {team2.name}!")
+
+            team1.prev_seen.append(team2)
+            team2.prev_seen.append(team1)
+
+            # make sure nobody gets all aff or all neg
+            if team1.num_aff <= team2.num_aff:
+                team1.num_aff += 1
+            else:
+                self.assignments[idx] = [team2, team1]
+                team2.num_aff += 1
+
+        #            print(f"{team1.name} ({team1.num_aff} aff) vs {team2.name} ({team2.num_aff} aff)")
 
         print("Round broken!")
 
@@ -215,10 +239,10 @@ class DebateRound:
         table = temp.tables[0]
 
         for idx, room in enumerate(self.rooms):
-            table.cell(idx+1, 0).text += f" {room} ({idx})"
+            table.cell(idx + 1, 0).text += f" {room} ({idx})"
             aff_team = self.assignments[idx][0]
             neg_team = self.assignments[idx][1]
-            table.cell(idx+1, 1).text = f"{aff_team.name} ({aff_team.id})"
-            table.cell(idx+1, 2).text = f"{neg_team.name} ({neg_team.id})"
+            table.cell(idx + 1, 1).text = f"{aff_team.name} ({aff_team.id})"
+            table.cell(idx + 1, 2).text = f"{neg_team.name} ({neg_team.id})"
 
         temp.save(save_str)

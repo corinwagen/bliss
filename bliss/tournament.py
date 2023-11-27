@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import bliss
 
+
 @dataclass
 class Tournament:
     name: str
